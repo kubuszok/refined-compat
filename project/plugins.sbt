@@ -1,11 +1,2 @@
-// git
-addSbtPlugin("com.github.sbt" % "sbt-git" % "2.1.0")
-// formatting
-addSbtPlugin("org.scalameta" % "sbt-scalafmt" % "2.6.0")
-// cross-compile
-addSbtPlugin("com.eed3si9n" % "sbt-projectmatrix" % "0.11.0")
-addSbtPlugin("com.indoorvivants" % "sbt-commandmatrix" % "0.1.0")
-addSbtPlugin("org.scala-js" % "sbt-scalajs" % "1.20.1")
-addSbtPlugin("org.scala-native" % "sbt-scala-native" % "0.5.10")
-// publishing
-addSbtPlugin("com.github.sbt" % "sbt-pgp" % "2.3.1")
+// kubuszok plugin (bundles: sbt-git, sbt-pgp, sbt-scalafmt, sbt-projectmatrix, sbt-commandmatrix, sbt-scalajs, sbt-scala-native, and more)
+addSbtPlugin("com.kubuszok" % "sbt-kubuszok" % "0.1.0")

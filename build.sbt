@@ -1,8 +1,6 @@
-import com.jsuereth.sbtpgp.PgpKeys.publishSigned
+import kubuszok.sbt._
+import kubuszok.sbt.KubuszokPlugin.autoImport._
 import commandmatrix.extra.*
-
-// Used to publish snapshots to Maven Central.
-val mavenCentralSnapshots = "Maven Central Snapshots" at "https://central.sonatype.com/repository/maven-snapshots"
 
 // Versions:
 
@@ -16,21 +14,12 @@ val versions = new {
   val hearth = "0.3.0-22-gc856d5b-SNAPSHOT"
   val refined = "0.11.3"
   val munit = "1.2.4"
-
-  def fold[A](scalaVersion: String)(for2_13: => Seq[A], for3: => Seq[A]): Seq[A] =
-    CrossVersion.partialVersion(scalaVersion) match {
-      case Some((2, 13)) => for2_13
-      case Some((3, _))  => for3
-      case _             => Seq.empty
-    }
 }
 
 // Common settings:
 
 val settings = Seq(
-  git.useGitDescribe := true,
-  git.uncommittedSignifier := None,
-  scalacOptions ++= versions.fold(scalaVersion.value)(
+  scalacOptions ++= foldVersion(scalaVersion.value)(
     for2_13 = Seq("-Xsource:3", "-language:implicitConversions"),
     for3 = Seq("-language:implicitConversions")
   )
@@ -57,22 +46,11 @@ val publishSettings = Seq(
       <url>https://github.com/kubuszok/refined-compat/issues</url>
     </issueManagement>
   ),
-  publishTo := {
-    if (isSnapshot.value) Some(mavenCentralSnapshots)
-    else localStaging.value
-  },
-  publishMavenStyle := true,
-  Test / publishArtifact := false,
-  pomIncludeRepository := { _ => false },
-  versionScheme := Some("early-semver"),
-  git.useGitDescribe := true,
-  git.uncommittedSignifier := None,
-  git.gitUncommittedChanges := git.gitCurrentTags.value.isEmpty,
-  git.uncommittedSignifier := Some("SNAPSHOT")
+  projectType := ProjectType.ScalaLibrary
 )
 
 val noPublishSettings =
-  Seq(publish / skip := true, publishArtifact := false)
+  Seq(projectType := ProjectType.NonPublished)
 
 val resolverSettings = Seq(
   resolvers += mavenCentralSnapshots,
@@ -82,7 +60,7 @@ val resolverSettings = Seq(
 // Cross-quotes plugin for Scala 3:
 
 val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
-  versions.fold(scalaVersion)(
+  foldVersion(scalaVersion)(
     for2_13 = List(
       MatrixAction {
         case (version, List(VirtualAxis.jvm)) => version.isScala2
@@ -120,25 +98,15 @@ val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
 
 lazy val root = project
   .in(file("."))
-  .enablePlugins(GitVersioning, GitBranchPrompt)
   .settings(publishSettings)
   .settings(noPublishSettings)
-  .settings(
-    name := "refined-compat-root",
-    commands += Command.command("ci-release") { state =>
-      val extracted = Project.extract(state)
-      val tags = extracted.get(git.gitCurrentTags)
-      val cmd = if (tags.nonEmpty) "publishSigned ; sonaRelease" else "publishSigned"
-      cmd :: state
-    }
-  )
+  .settings(name := "refined-compat-root")
   .aggregate(compat.projectRefs *)
   .aggregate(tests.projectRefs *)
 
 lazy val compat = projectMatrix
   .in(file("compat"))
   .someVariations(versions.scalas, versions.platforms)(useCrossQuotes *)
-  .enablePlugins(GitVersioning, GitBranchPrompt)
   .settings(
     moduleName := "refined-compat",
     name := "refined-compat",
@@ -157,7 +125,6 @@ lazy val compat = projectMatrix
 lazy val tests = projectMatrix
   .in(file("tests"))
   .someVariations(versions.scalas, List(VirtualAxis.jvm))()
-  .enablePlugins(GitVersioning, GitBranchPrompt)
   .settings(
     moduleName := "refined-compat-tests",
     name := "refined-compat-tests"
