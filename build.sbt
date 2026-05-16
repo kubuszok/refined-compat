@@ -2,6 +2,8 @@ import kubuszok.sbt._
 import kubuszok.sbt.KubuszokPlugin.autoImport._
 import commandmatrix.extra.*
 
+Global / allowUnsafeScalaLibUpgrade := true
+
 // Versions:
 
 val versions = new {
