@@ -108,7 +108,16 @@ lazy val root = project
   .settings(noPublishSettings)
   .settings(
     name := "refined-compat-root",
-    logo := s"refined-compat ${version.value}",
+    logo :=
+      s"""refined-compat ${version.value} for (${versions.scala213}, ${versions.scala3}) x (JVM, Scala.js, Scala Native)
+         |
+         |This build uses sbt-projectmatrix:
+         | - Scala JVM adds no suffix to a project name seen in build.sbt
+         | - Scala.js adds the "JS" suffix to a project name seen in build.sbt
+         | - Scala Native adds the "Native" suffix to a project name seen in build.sbt
+         | - Scala 2.13 adds no suffix to a project name seen in build.sbt
+         | - Scala 3 adds the suffix "3" to a project name seen in build.sbt
+         |""".stripMargin,
     usefulTasks := al.usefulTasks()
   )
   .aggregate(compat.projectRefs *)
