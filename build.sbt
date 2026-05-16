@@ -1,5 +1,6 @@
 import kubuszok.sbt._
 import kubuszok.sbt.KubuszokPlugin.autoImport._
+import sbtwelcome.UsefulTask
 import commandmatrix.extra.*
 
 Global / allowUnsafeScalaLibUpgrade := true
@@ -98,11 +99,18 @@ val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
 
 // Modules:
 
+lazy val al = new Aliases(published = Seq(compat, tests))
+
 lazy val root = project
   .in(file("."))
+  .enablePlugins(KubuszokRootPlugin)
   .settings(publishSettings)
   .settings(noPublishSettings)
-  .settings(name := "refined-compat-root")
+  .settings(
+    name := "refined-compat-root",
+    logo := s"refined-compat ${version.value}",
+    usefulTasks := al.usefulTasks()
+  )
   .aggregate(compat.projectRefs *)
   .aggregate(tests.projectRefs *)
 
