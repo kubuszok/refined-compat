@@ -14,7 +14,7 @@ val versions = new {
   val scalas = List(scala213, scala3)
   val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
 
-  val hearth = "0.3.0-53-g69f9069-SNAPSHOT"
+  val hearth = "0.3.1"
   val refined = "0.11.3"
   val munit = "1.3.2"
 }
