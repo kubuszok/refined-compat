@@ -9,7 +9,7 @@ Global / allowUnsafeScalaLibUpgrade := true
 
 val versions = new {
   val scala213 = "2.13.18"
-  val scala3 = "3.3.7"
+  val scala3 = "3.3.8"
 
   val scalas = List(scala213, scala3)
   val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
@@ -23,8 +23,8 @@ val versions = new {
 
 val settings = Seq(
   scalacOptions ++= foldVersion(scalaVersion.value)(
-    for2_13 = Seq("-Xsource:3", "-language:implicitConversions"),
-    for3 = Seq("-language:implicitConversions")
+    for2_13 = Seq("-Xsource:3", "-language:implicitConversions", "-release", "11"),
+    for3 = Seq("-language:implicitConversions", "-release", "11")
   )
 )
 
@@ -97,6 +97,17 @@ val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
   )
 }
 
+// Lazy vals not relying on sun.misc.Unsafe (futureproofing for JDKs that remove it):
+
+val futureLazyVals = MatrixAction
+  .ForPlatform(VirtualAxis.jvm)
+  .Configure(
+    _.settings(
+      // There is a bug in Scala Native 0.5.12 which crashes when seeing this flag, so we disable it for non-JVM.
+      scalacOptions ++= { if (scalaVersion.value == versions.scala3) Seq("-Yfuture-lazy-vals") else Seq.empty }
+    )
+  )
+
 // Modules:
 
 lazy val al = new Aliases(published = Seq(compat, tests))
@@ -125,7 +136,7 @@ lazy val root = project
 
 lazy val compat = projectMatrix
   .in(file("compat"))
-  .someVariations(versions.scalas, versions.platforms)(useCrossQuotes *)
+  .someVariations(versions.scalas, versions.platforms)((useCrossQuotes :+ futureLazyVals) *)
   .settings(
     moduleName := "refined-compat",
     name := "refined-compat",
@@ -143,7 +154,7 @@ lazy val compat = projectMatrix
 
 lazy val tests = projectMatrix
   .in(file("tests"))
-  .someVariations(versions.scalas, List(VirtualAxis.jvm))()
+  .someVariations(versions.scalas, List(VirtualAxis.jvm))(futureLazyVals)
   .settings(
     moduleName := "refined-compat-tests",
     name := "refined-compat-tests"
