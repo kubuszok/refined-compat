@@ -33,4 +33,7 @@ jobs:
           jvm: "temurin:1.17.0.15"
           apps: sbt
       - name: Compile and test all variations
-        run: sbt test
+        # sbt 2.0: the bare `test` task is incremental/machine-cached (behaves like sbt 1.x's
+        # `testQuick`), so a fresh CI run can vacuously pass with "No tests to run". `testFull`
+        # forces a real run.
+        run: sbt testFull

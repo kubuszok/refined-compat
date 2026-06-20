@@ -1,23 +1,23 @@
 import kubuszok.sbt._
 import kubuszok.sbt.KubuszokPlugin.autoImport._
-import sbtwelcome.UsefulTask
 import commandmatrix.extra.*
 
 Global / allowUnsafeScalaLibUpgrade := true
 
 // Versions:
+// sbt 2.0's build dialect drops the structural-type refinement on `new { ... }`, so a `versions`
+// object's members no longer resolve from lifted setting expressions. Use plain top-level vals
+// (the proven sbt-2.0 pattern).
 
-val versions = new {
-  val scala213 = "2.13.18"
-  val scala3 = "3.3.8"
+val scala213 = "2.13.18"
+val scala3   = "3.3.8"
 
-  val scalas = List(scala213, scala3)
-  val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
+val scalas    = List(scala213, scala3)
+val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
 
-  val hearth = "0.3.1-47-g374c34d-SNAPSHOT"
-  val refined = "0.11.3"
-  val munit = "1.3.3"
-}
+val hearthVersion  = "0.3.1-54-g83c3eb5-SNAPSHOT"
+val refinedVersion = "0.11.3"
+val munitVersion   = "1.3.3"
 
 // Common settings:
 
@@ -62,32 +62,42 @@ val resolverSettings = Seq(
 
 // Cross-quotes plugin for Scala 3:
 
-val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
+val useCrossQuotes = scalas.flatMap { scalaVersion =>
   foldVersion(scalaVersion)(
     for2_13 = List(
       MatrixAction {
         case (version, List(VirtualAxis.jvm)) => version.isScala2
         case _                                => false
-      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % versions.hearth)),
+      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % hearthVersion)),
       MatrixAction {
         case (version, List(VirtualAxis.js)) => version.isScala2
         case _                               => false
-      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % versions.hearth)),
+      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % hearthVersion)),
       MatrixAction {
         case (version, List(VirtualAxis.native)) => version.isScala2
         case _                                   => false
-      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % versions.hearth))
+      }.Configure(_.settings(libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % hearthVersion))
     ),
     for3 = List(
       MatrixAction
         .ForScala(_.isScala3)
         .Configure(
+          // On Scala 3 cross-quotes is a *compiler plugin* and is published for JVM only — the same
+          // plugin jar is reused across all platforms (JVM/JS/Native). In sbt 2.0 `%%` is now
+          // platform-aware (it would try to resolve `hearth-cross-quotes_sjs1_3` / `_native0.5_3`,
+          // which do not exist), so reference the JVM artifact directly with single `%` + literal
+          // `_3` suffix as a Provided dependency (kept off the runtime classpath; the jar is wired
+          // into the compiler via the `-Xplugin` option resolved from the dependency classpath below).
           _.settings(
-            libraryDependencies += "com.kubuszok" %% "hearth-cross-quotes" % versions.hearth % Provided,
+            libraryDependencies += "com.kubuszok" % "hearth-cross-quotes_3" % hearthVersion % Provided,
             scalacOptions ++= {
+              // sbt 2.0: classpath entries are xsbti.HashedVirtualFileRef (no getName/getAbsolutePath);
+              // resolve to a real path via the build's fileConverter.
+              val converter = fileConverter.value
               val pluginJar = (Compile / dependencyClasspath).value
-                .find(_.data.getName.contains("hearth-cross-quotes"))
-                .map(_.data.getAbsolutePath)
+                .map(ref => converter.toPath(ref.data).toAbsolutePath)
+                .find(_.getFileName.toString.contains("hearth-cross-quotes"))
+                .map(_.toString)
                 .getOrElse(sys.error("hearth-cross-quotes jar not found on classpath"))
               Seq(s"-Xplugin:$pluginJar")
             }
@@ -98,19 +108,34 @@ val useCrossQuotes = versions.scalas.flatMap { scalaVersion =>
 }
 
 // Lazy vals not relying on sun.misc.Unsafe (futureproofing for JDKs that remove it):
+// On the 3.3 LTS line lazy vals use the legacy bitmap encoding that breaks under newer JDKs.
+// `-Yfuture-lazy-vals` opts into the new encoding (built-in on 3.4+) but requires a Java output
+// version >= 9. The shared `settings` above already sets `-release 11`, which pins the output
+// version to 11 (>= 9), so the flag works on its own — adding an explicit `-java-output-version`
+// would only clash with `-release` ("flag -java-output-version set repeatedly"). Apply ONLY on
+// 3.3.8 + JVM; never on 2.13, never on non-JVM (Scala Native 0.5.12 crashes on the flag), never on 3.4+.
 
 val futureLazyVals = MatrixAction
   .ForPlatform(VirtualAxis.jvm)
   .Configure(
     _.settings(
-      // There is a bug in Scala Native 0.5.12 which crashes when seeing this flag, so we disable it for non-JVM.
-      scalacOptions ++= { if (scalaVersion.value == versions.scala3) Seq("-Yfuture-lazy-vals") else Seq.empty }
+      scalacOptions ++= {
+        if (scalaVersion.value == scala3) Seq("-Yfuture-lazy-vals")
+        else Seq.empty
+      }
     )
   )
 
 // Modules:
 
-lazy val al = new Aliases(published = Seq(compat, tests))
+// Convenience aliases. sbt-welcome (which previously exposed `logo`/`usefulTasks`) has no sbt 2.0
+// build and is no longer bundled by sbt-kubuszok, so the help-menu tasks are registered as aliases
+// instead. In a projectMatrix build the root aggregates every Scala-version/platform variation, so a
+// plain aggregated task already covers all of them (no `+` cross-stepping needed). Note: in sbt 2.0
+// the bare `test` task is incremental/machine-cached; `testFull` forces a real, full run.
+addCommandAlias("compileAll", "compile")
+addCommandAlias("testAll", "testFull")
+addCommandAlias("publishLocalAll", "publishLocal")
 
 lazy val root = project
   .in(file("."))
@@ -118,25 +143,14 @@ lazy val root = project
   .settings(publishSettings)
   .settings(noPublishSettings)
   .settings(
-    name := "refined-compat-root",
-    logo :=
-      s"""refined-compat ${version.value} for (${versions.scala213}, ${versions.scala3}) x (JVM, Scala.js, Scala Native)
-         |
-         |This build uses sbt-projectmatrix:
-         | - Scala JVM adds no suffix to a project name seen in build.sbt
-         | - Scala.js adds the "JS" suffix to a project name seen in build.sbt
-         | - Scala Native adds the "Native" suffix to a project name seen in build.sbt
-         | - Scala 2.13 adds no suffix to a project name seen in build.sbt
-         | - Scala 3 adds the suffix "3" to a project name seen in build.sbt
-         |""".stripMargin,
-    usefulTasks := al.usefulTasks()
+    name := "refined-compat-root"
   )
   .aggregate(compat.projectRefs *)
   .aggregate(tests.projectRefs *)
 
 lazy val compat = projectMatrix
   .in(file("compat"))
-  .someVariations(versions.scalas, versions.platforms)((useCrossQuotes :+ futureLazyVals) *)
+  .someVariations(scalas, platforms)((useCrossQuotes :+ futureLazyVals) *)
   .settings(
     moduleName := "refined-compat",
     name := "refined-compat",
@@ -146,15 +160,16 @@ lazy val compat = projectMatrix
   .settings(publishSettings *)
   .settings(resolverSettings *)
   .settings(
+    // sbt 2.0: %% is platform-aware (encodes Scala version + JS/Native suffix); %%% is gone.
     libraryDependencies ++= Seq(
-      "com.kubuszok" %%% "hearth" % versions.hearth,
-      "eu.timepit" %%% "refined" % versions.refined
+      "com.kubuszok" %% "hearth"  % hearthVersion,
+      "eu.timepit"   %% "refined" % refinedVersion
     )
   )
 
 lazy val tests = projectMatrix
   .in(file("tests"))
-  .someVariations(versions.scalas, List(VirtualAxis.jvm))(futureLazyVals)
+  .someVariations(scalas, List(VirtualAxis.jvm))(futureLazyVals)
   .settings(
     moduleName := "refined-compat-tests",
     name := "refined-compat-tests"
@@ -165,7 +180,7 @@ lazy val tests = projectMatrix
   .settings(resolverSettings *)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalameta" %%% "munit" % versions.munit % Test
+      "org.scalameta" %% "munit" % munitVersion % Test
     )
   )
   .dependsOn(compat)
