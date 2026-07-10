@@ -17,7 +17,7 @@ val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
 
 val hearthVersion = "0.4.0-48-g7e800e0-SNAPSHOT"
 val refinedVersion = "0.11.4"
-val munitVersion = "1.3.3"
+val munitVersion = "1.3.4"
 
 // Common settings:
 
