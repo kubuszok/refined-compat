@@ -32,8 +32,10 @@ jobs:
         with:
           jvm: "temurin:1.17.0.15"
           apps: sbt
-      - name: Compile and test all variations
+      - name: Compile, test all variations, and check binary compatibility
         # sbt 2.0: the bare `test` task is incremental/machine-cached (behaves like sbt 1.x's
         # `testQuick`), so a fresh CI run can vacuously pass with "No tests to run". `testFull`
-        # forces a real run.
-        run: sbt testFull
+        # forces a real run. `mima` checks binary compatibility against the last release.
+        # sbt 2.0 needs the two commands semicolon-separated in one argument (bare
+        # `sbt testFull mima` fails to parse: "Expected '/'").
+        run: sbt "testFull ; mima"
