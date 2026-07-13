@@ -57,11 +57,11 @@ val publishSettings = Seq(
 val noPublishSettings =
   Seq(projectType := ProjectType.NonPublished)
 
-// Binary-compatibility check against the last release (0.2.0 is already Hearth-based, so it is an
+// Binary-compatibility check against the last release (every version is Hearth-based, so it is an
 // apples-to-apples baseline), so a version we are preparing cannot break users. `.cross(crossVersion.value)`
-// picks the matching platform+Scala artifact (refined-compat_3, refined-compat_sjs1_3, ...); 0.2.0 was
-// published for every platform, so all have a baseline.
-val mimaPreviousVersion = "0.2.0"
+// picks the matching platform+Scala artifact (refined-compat_3, refined-compat_sjs1_3, ...); 0.2.1 was
+// published for every platform, so all have a baseline. Bump this on every release.
+val mimaPreviousVersion = "0.2.1"
 
 val mimaSettings = Seq(
   mimaPreviousArtifacts := Set((organization.value % moduleName.value % mimaPreviousVersion).cross(crossVersion.value)),
