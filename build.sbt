@@ -1,6 +1,8 @@
 import kubuszok.sbt._
 import kubuszok.sbt.KubuszokPlugin.autoImport._
 import commandmatrix.extra.*
+import com.typesafe.tools.mima.core.*
+import com.typesafe.tools.mima.core.ProblemFilters.*
 
 Global / allowUnsafeScalaLibUpgrade := true
 
@@ -15,7 +17,7 @@ val scala3 = "3.3.8"
 val scalas = List(scala213, scala3)
 val platforms = List(VirtualAxis.jvm, VirtualAxis.js, VirtualAxis.native)
 
-val hearthVersion = "0.4.0-48-g7e800e0-SNAPSHOT"
+val hearthVersion = "0.4.1"
 val refinedVersion = "0.11.4"
 val munitVersion = "1.3.4"
 
@@ -54,6 +56,18 @@ val publishSettings = Seq(
 
 val noPublishSettings =
   Seq(projectType := ProjectType.NonPublished)
+
+// Binary-compatibility check against the last release (0.2.0 is already Hearth-based, so it is an
+// apples-to-apples baseline), so a version we are preparing cannot break users. `.cross(crossVersion.value)`
+// picks the matching platform+Scala artifact (refined-compat_3, refined-compat_sjs1_3, ...); 0.2.0 was
+// published for every platform, so all have a baseline.
+val mimaPreviousVersion = "0.2.0"
+
+val mimaSettings = Seq(
+  mimaPreviousArtifacts := Set((organization.value % moduleName.value % mimaPreviousVersion).cross(crossVersion.value)),
+  mimaFailOnNoPrevious := true,
+  mimaBinaryIssueFilters ++= Seq.empty[ProblemFilter]
+)
 
 val resolverSettings = Seq(
   resolvers += mavenCentralSnapshots,
@@ -136,6 +150,9 @@ val futureLazyVals = MatrixAction
 addCommandAlias("compileAll", "compile")
 addCommandAlias("testAll", "testFull")
 addCommandAlias("publishLocalAll", "publishLocal")
+// Binary-compatibility check on the published `compat` module (JVM, both Scala versions - binary compat
+// derives from the same sources). Run in CI alongside `testFull` (see .github/workflows/ci.yml).
+addCommandAlias("mima", "compat/mimaReportBinaryIssues ; compat2_13/mimaReportBinaryIssues")
 
 lazy val root = project
   .in(file("."))
@@ -158,6 +175,7 @@ lazy val compat = projectMatrix
   )
   .settings(settings *)
   .settings(publishSettings *)
+  .settings(mimaSettings *)
   .settings(resolverSettings *)
   .settings(
     // sbt 2.0: %% is platform-aware (encodes Scala version + JS/Native suffix); %%% is gone.
