@@ -32,6 +32,12 @@ jobs:
         with:
           jvm: "temurin:1.17.0.15"
           apps: sbt
+      - name: Make `sbt` run in the foreground (sbt 2 thin client starts a background server)
+        shell: bash
+        run: |
+          dir="$RUNNER_TEMP/sbt-foreground"; mkdir -p "$dir"
+          printf '#!/usr/bin/env bash\nexec "%s" --server "$@"\n' "$(command -v sbt)" > "$dir/sbt"
+          chmod +x "$dir/sbt"; echo "$dir" >> "$GITHUB_PATH"
       - name: Compile, test all variations, and check binary compatibility
         # sbt 2.0: the bare `test` task is incremental/machine-cached (behaves like sbt 1.x's
         # `testQuick`), so a fresh CI run can vacuously pass with "No tests to run". `testFull`
