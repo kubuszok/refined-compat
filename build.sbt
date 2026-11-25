@@ -127,7 +127,7 @@ val useCrossQuotes = scalas.flatMap { scalaVersion =>
 // version >= 9. The shared `settings` above already sets `-release 11`, which pins the output
 // version to 11 (>= 9), so the flag works on its own — adding an explicit `-java-output-version`
 // would only clash with `-release` ("flag -java-output-version set repeatedly"). Apply ONLY on
-// 3.3.9 + JVM; never on 2.13, never on non-JVM (Scala Native 0.5.12 crashes on the flag), never on 3.4+.
+// 3.3.9 + JVM; never on 2.13, never on non-JVM (Scala Native 0.5.13 crashes on the flag), never on 3.4+.
 
 val futureLazyVals = MatrixAction
   .ForPlatform(VirtualAxis.jvm)
